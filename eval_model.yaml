@@ -1,0 +1,95 @@
+name: Evaluate Model
+description: Evaluates the trained model and generates performance metrics.
+inputs:
+  - {name: trained_model, type: Model}     # Trained model from train brick
+  - {name: data_path, type: String}               # data path
+  - {name: config, type: Json}           # Evaluation configuration
+outputs:
+  - {name: metrics, type: Metrics}         # Evaluation metrics and reports
+implementation:
+  container:
+    image: python:3.9
+    command:
+      - sh
+      - -c
+      - |
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torch_geometric scikit-learn || \
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torch_geometric scikit-learn --user
+        exec "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        import torch
+        import argparse
+        import pickle
+        import json
+        from sklearn.metrics import classification_report
+        
+        # Parse arguments
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--trained_model', type=str, required=True)
+        parser.add_argument('--data', type=str, required=True)
+        parser.add_argument('--config', type=str, required=True)
+        parser.add_argument('--metrics', type=str, required=True)
+        args = parser.parse_args()
+        
+        # Load inputs
+        print("Loading trained model...")
+        model = torch.load(args.trained_model)
+        
+        print("Loading data...")
+        data = torch.load(args.data_path)
+            
+        print("Loading config...")
+        with open(args.config_file) as f:
+            config = json.load(f)
+        
+        # --- Model Evaluation (extracted from main code) ---
+        print("--- Starting Model Evaluation ---")
+        eval_metrics = model.eval_step(data, data.test_mask)
+        print(f"Test Accuracy: {eval_metrics['accuracy']:.4f}")
+        
+        # --- Detailed Report (extracted from main code) ---
+        model.eval()
+        with torch.no_grad():
+            out = model.predict(data)
+            pred = out.argmax(dim=1)
+            
+            test_pred = pred[data.test_mask].cpu().numpy()
+            test_true = data.y[data.test_mask].cpu().numpy()
+            
+            known_mask = test_true != 2
+            test_pred_known = test_pred[known_mask]
+            test_true_known = test_true[known_mask]
+            
+            print("\nClassification Report:")
+            report = classification_report(test_true_known, test_pred_known, 
+                                         target_names=['Licit', 'Illicit'], 
+                                         labels=[0, 1], digits=4, output_dict=True)
+            print(classification_report(test_true_known, test_pred_known, 
+                                      target_names=['Licit', 'Illicit'], 
+                                      labels=[0, 1], digits=4))
+        
+        # Prepare metrics output
+        metrics_output = {
+            'test_accuracy': eval_metrics['accuracy'],
+            'classification_report': report,
+            'test_predictions': test_pred_known.tolist(),
+            'test_true_labels': test_true_known.tolist()
+        }
+        
+        # Save metrics
+        print("Saving evaluation metrics...")
+        with open(args.metrics, 'w') as f:
+            json.dump(metrics_output, f, indent=2)
+        print(f"Saved metrics to {args.metrics}")
+    args:
+      - --trained_model
+      - {inputPath: trained_model}
+      - --data
+      - {inputPath: data_path}
+      - --config
+      - {inputPath: config}
+      - --metrics
+      - {outputPath: metrics}
