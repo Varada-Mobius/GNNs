@@ -28,7 +28,7 @@ implementation:
         import sys
 
         def analyze_class_distribution(data):
-            """Analyze class distribution from PyTorch Geometric data object"""
+            
             y = data.y
             train_mask = data.train_mask.bool() if hasattr(data, 'train_mask') else torch.ones(len(y), dtype=torch.bool)
             
