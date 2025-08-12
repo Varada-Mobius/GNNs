@@ -126,5 +126,5 @@ implementation:
         # Run script with proper arguments
         python3 /tmp/preprocess_script.py "$0" "$1"
     args:
-      - {inputValue: input_pth}
+      - {inputPath: input_pth}
       - {outputPath: weights_out1}
