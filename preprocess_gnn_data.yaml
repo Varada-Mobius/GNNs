@@ -112,8 +112,8 @@ implementation:
             print(f"Weights: {weights_dict}")
             
             # Write the output path to the expected location for Kubeflow
-            with open('/tmp/outputs/weights_out1/data', 'w') as f:
-                f.write(output_path)
+            # with open('/tmp/outputs/weights_out1/data', 'w') as f:
+            #     f.write(output_path)
             print(f" Output path written to /tmp/outputs/weights_out1/data")
             
         except Exception as e:
@@ -124,7 +124,7 @@ implementation:
         SCRIPT_EOF
         
         # Run script with proper arguments
-        python3 /tmp/preprocess_script.py "$0" "$1"
+        python3 /tmp/preprocess_script.py "$1" "$2"
     args:
-      - {inputPath: input_pth}
+      - /tmp/inputs/input_pth/data
       - {outputPath: weights_out1}
