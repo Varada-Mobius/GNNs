@@ -1,5 +1,5 @@
-name: Load Elliptic Bitcoin Dataset
-description: Loads the EllipticBitcoinDataset and saves it as a PyTorch .pt file.
+name: Load New Elliptic Bitcoin Dataset
+description: 2 Loads the EllipticBitcoinDataset and saves it as a PyTorch .pt file.
 outputs:
   - name: outputpath1
     type: String
