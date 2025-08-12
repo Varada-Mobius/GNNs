@@ -1,11 +1,7 @@
-name: Preprocess new Elliptic Data
-description: 2 Analyzes class distribution and outputs alpha & class weights as JSON.
-inputs:
-  - name: input_pth
-    type: String
+name: Load Elliptic Bitcoin Dataset
+description: Loads the EllipticBitcoinDataset and saves it as Dataset type using pickle.
 outputs:
-  - name: weights_out1
-    type: String
+  - {name: elliptic_data, type: Dataset}
 implementation:
   container:
     image: python:3.9
@@ -13,118 +9,43 @@ implementation:
       - sh
       - -c
       - |
-        set -e
-        # Install dependencies
-        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torch_geometric --user
-        
-        # Create output directory
-        mkdir -p /tmp/outputs/weights_out1
-        
-        # Create a temporary Python script
-        cat > /tmp/preprocess_script.py << 'SCRIPT_EOF'
-        import torch
-        import json
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric pandas --user || \
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric pandas --user
+        exec "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        import argparse
         import os
-        import sys
-
-        def analyze_class_distribution(data):
-            
-            y = data.y
-            train_mask = data.train_mask.bool() if hasattr(data, 'train_mask') else torch.ones(len(y), dtype=torch.bool)
-            
-            train_labels = y[train_mask]
-            known_mask = train_labels != 2  # Assuming 2 is unknown class
-            known_labels = train_labels[known_mask]
-            
-            licit_count = (known_labels == 0).sum().item()
-            illicit_count = (known_labels == 1).sum().item()
-            total_known = len(known_labels)
-            
-            print(f"Licit count: {licit_count}")
-            print(f"Illicit count: {illicit_count}")
-            print(f"Total known: {total_known}")
+        import pickle
+        import torch
+        from torch_geometric.datasets import EllipticBitcoinDataset
         
-            # Calculate class weights for weighted cross entropy
-            ce_weight_licit = total_known / (2 * licit_count) if licit_count > 0 else 1.0
-            ce_weight_illicit = total_known / (2 * illicit_count) if illicit_count > 0 else 1.0
-            class_weights = [ce_weight_licit, ce_weight_illicit, 0.0]
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--elliptic_data', type=str, required=True)
+        args = parser.parse_args()
         
-            # Calculate alpha weights for focal loss
-            alpha_licit = illicit_count / total_known if total_known > 0 else 0.5
-            alpha_illicit = licit_count / total_known if total_known > 0 else 0.5
-            alpha_weights = [alpha_licit, alpha_illicit, 0.0]
+        print(f"[INFO] Loading Elliptic Bitcoin Dataset...")
         
-            return alpha_weights, class_weights
-
-        # Read command line arguments
-        if len(sys.argv) != 3:
-            print(f"Usage: {sys.argv[0]} <input_data_path> <output_path>")
-            print(f"Got {len(sys.argv)} arguments: {sys.argv}")
-            sys.exit(1)
-            
-        input_data_path = sys.argv[1]  # This should be the direct path to the data file
-        output_path = sys.argv[2]
+        # Load the dataset
+        dataset = EllipticBitcoinDataset(root='/tmp/elliptic')
+        data = dataset[0]  # Get the single graph data object
         
-        print(f"Input data path: {input_data_path}")
-        print(f"Output path: {output_path}")
-        
-        # Check if the input file exists
-        if not os.path.exists(input_data_path):
-            print(f"Error: Input file does not exist at {input_data_path}")
-            print("Available files in /tmp/inputs/:")
-            if os.path.exists("/tmp/inputs/"):
-                for root, dirs, files in os.walk("/tmp/inputs/"):
-                    for file in files:
-                        print(f"  {os.path.join(root, file)}")
-            sys.exit(1)
-        
-        # Load the PyTorch data file with weights_only=False for torch_geometric compatibility
-        try:
-            data = torch.load(input_data_path, weights_only=False)
-            print(f"Successfully loaded data from {input_data_path}")
-            print(f"Data type: {type(data)}")
-            if hasattr(data, 'y'):
-                print(f"Labels shape: {data.y.shape}")
-                print(f"Unique labels: {torch.unique(data.y)}")
-        except Exception as e:
-            print(f"Error loading data: {e}")
-            sys.exit(1)
+        print(f"[INFO] Dataset loaded successfully")
+        print(f"[INFO] Number of nodes: {data.x.shape[0]}")
+        print(f"[INFO] Number of edges: {data.edge_index.shape[1]}")
+        print(f"[INFO] Number of features: {data.x.shape[1]}")
+        print(f"[INFO] Unique labels: {torch.unique(data.y)}")
         
         # Ensure output directory exists
-        out_dir = os.path.dirname(output_path)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
+        os.makedirs(os.path.dirname(args.elliptic_data), exist_ok=True)
         
-        # Analyze class distribution
-        try:
-            alpha_weights, class_weights = analyze_class_distribution(data)
-            
-            weights_dict = {
-                'focal_loss_alpha': alpha_weights,
-                'class_weights': class_weights
-            }
-            
-            # Save to output path
-            with open(output_path, 'w') as f:
-                json.dump(weights_dict, f, indent=2)
-            
-            print(f" Saved weights to {output_path}")
-            print(f"Weights: {weights_dict}")
-            
-            # Write the output path to the expected location for Kubeflow
-            # with open('/tmp/outputs/weights_out1/data', 'w') as f:
-            #     f.write(output_path)
-            print(f" Output path written to /tmp/outputs/weights_out1/data")
-            
-        except Exception as e:
-            print(f"Error during analysis: {e}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
-        SCRIPT_EOF
+        # Save using pickle (similar to MNIST approach)
+        with open(args.elliptic_data, "wb") as f:
+            pickle.dump(data, f)
         
-        # Run script with proper arguments
-        python3 /tmp/preprocess_script.py "$1" "$2"
+        print(f"[SUCCESS] Saved Elliptic dataset to {args.elliptic_data}")
     args:
-      - /tmp/inputs/input_pth/data
-      - {outputPath: weights_out1}
+      - --elliptic_data
+      - {outputPath: elliptic_data}
