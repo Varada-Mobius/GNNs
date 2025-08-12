@@ -1,0 +1,47 @@
+name: Load Elliptic Bitcoin Dataset
+description: Loads the EllipticBitcoinDataset and saves it as a PyTorch .pt file.
+outputs:
+  - name: outputpath1
+    type: String
+    description: Path to saved dataset file (.pt)
+implementation:
+  container:
+    image: python:3.9
+    command:
+      - sh
+      - -c
+      - |
+        # Install dependencies
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio --user
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch_geometric pandas --user
+        # Run Python script with proper argument passing
+        python3 -u - --outputpath1 "$0" <<'PYCODE'
+        import argparse
+        import os
+        import sys
+        import torch
+        from torch_geometric.datasets import EllipticBitcoinDataset
+        
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--outputpath1', type=str, required=True)
+        args = parser.parse_args()
+        
+        print(f"[INFO] Saving dataset to: {args.outputpath1}")
+        
+        dataset = EllipticBitcoinDataset(root='/tmp/elliptic')
+        data = dataset[0]
+        
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(args.outputpath1), exist_ok=True)
+        
+        # Save as a .pt file
+        torch.save(data, args.outputpath1)
+        print(f"[SUCCESS] Saved raw data to {args.outputpath1}")
+        
+        # Write the output path to the expected location for Kubeflow
+        with open('/tmp/outputs/outputpath1/data', 'w') as f:
+            f.write(args.outputpath1)
+        print(f"[INFO] Output path written to /tmp/outputs/outputpath1/data")
+        PYCODE
+    args:
+      - {outputPath: outputpath1}
