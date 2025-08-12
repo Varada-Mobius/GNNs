@@ -1,4 +1,4 @@
-name:  new Load Elliptic Bitcoin Dataset
+name: New Load Elliptic Bitcoin Dataset
 description: 3 Loads the EllipticBitcoinDataset and saves it as Dataset type using pickle.
 outputs:
   - {name: elliptic_data, type: Dataset}
@@ -9,8 +9,8 @@ implementation:
       - sh
       - -c
       - |
-        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric --user || \
-        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric --user
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric pandas --user || \
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric pandas --user
         exec "$0" "$@"
       - python3
       - -u
