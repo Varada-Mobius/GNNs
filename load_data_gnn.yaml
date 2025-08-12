@@ -32,22 +32,19 @@ implementation:
         
         print(f"[INFO] Output path received: {args.outputpath1}")
         
-        # Use a fixed path within the container for the dataset
-        dataset_path = "/tmp/dataset.pt"
         
-        print(f"[INFO] Loading and saving dataset to: {dataset_path}")
         
         dataset = EllipticBitcoinDataset(root='/tmp/elliptic')
         data = dataset[0]
         
-        # Save as a .pt file
-        torch.save(data, dataset_path)
-        print(f"[SUCCESS] Saved raw data to {dataset_path}")
+        torch.save(data, '/tmp/outputs/outputpath1/data')
+        print(f"[SUCCESS] Saved raw data to /tmp/outputs/outputpath1/data")
         
-        # Write the dataset path to the Kubeflow output location
-        with open('/tmp/outputs/outputpath1/data', 'w') as f:
-            f.write(dataset_path)
-        print(f"[INFO] Output path written to /tmp/outputs/outputpath1/data")
+        
+        # # Write the dataset path to the Kubeflow output location
+        # with open('/tmp/outputs/outputpath1/data', 'w') as f:
+        #     f.write(dataset_path)
+        # print(f"[INFO] Output path written to /tmp/outputs/outputpath1/data")
         PYCODE
     args:
       - {outputPath: outputpath1}
