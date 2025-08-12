@@ -58,20 +58,29 @@ implementation:
 
         # Read command line arguments
         if len(sys.argv) != 3:
-            print(f"Usage: {sys.argv[0]} <input_path> <output_path>")
+            print(f"Usage: {sys.argv[0]} <input_path_file> <output_path>")
             print(f"Got {len(sys.argv)} arguments: {sys.argv}")
             sys.exit(1)
             
-        input_path = sys.argv[1]
+        input_path_file = sys.argv[1]  # This contains the path to the actual data file
         output_path = sys.argv[2]
         
-        print(f"Input path: {input_path}")
+        print(f"Input path file: {input_path_file}")
         print(f"Output path: {output_path}")
+        
+        # Read the actual data file path from the input path file
+        try:
+            with open(input_path_file, 'r') as f:
+                actual_data_path = f.read().strip()
+            print(f"Actual data path: {actual_data_path}")
+        except Exception as e:
+            print(f"Error reading input path file: {e}")
+            sys.exit(1)
         
         # Load the PyTorch data file with weights_only=False for torch_geometric compatibility
         try:
-            data = torch.load(input_path, weights_only=False)
-            print(f"Successfully loaded data from {input_path}")
+            data = torch.load(actual_data_path, weights_only=False)
+            print(f"Successfully loaded data from {actual_data_path}")
             print(f"Data type: {type(data)}")
             if hasattr(data, 'y'):
                 print(f"Labels shape: {data.y.shape}")
@@ -98,13 +107,13 @@ implementation:
             with open(output_path, 'w') as f:
                 json.dump(weights_dict, f, indent=2)
             
-            print(f"✅ Saved weights to {output_path}")
+            print(f"Saved weights to {output_path}")
             print(f"Weights: {weights_dict}")
             
             # Write the output path to the expected location for Kubeflow
             with open('/tmp/outputs/weights_out1/data', 'w') as f:
                 f.write(output_path)
-            print(f"✅ Output path written to /tmp/outputs/weights_out1/data")
+            print(f"Output path written to /tmp/outputs/weights_out1/data")
             
         except Exception as e:
             print(f"Error during analysis: {e}")
