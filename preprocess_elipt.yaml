@@ -1,0 +1,111 @@
+name: Preprocess Elliptic Data
+description: Analyzes class distribution and outputs alpha & class weights as JSON.
+inputs:
+  - name: elliptic_data
+    type: Dataset
+outputs:
+  - name: weights_out1
+    type: String
+implementation:
+  container:
+    image: python:3.9
+    command:
+      - sh
+      - -c
+      - |
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torch_geometric || \
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torch_geometric --user
+        exec "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        import argparse
+        import os
+        import pickle
+        import torch
+        import json
+
+        def analyze_class_distribution(data):
+            # Analyze class distribution from PyTorch Geometric data object
+            y = data.y
+            train_mask = data.train_mask.bool() if hasattr(data, 'train_mask') else torch.ones(len(y), dtype=torch.bool)
+            
+            train_labels = y[train_mask]
+            known_mask = train_labels != 2  # Assuming 2 is unknown class
+            known_labels = train_labels[known_mask]
+            
+            licit_count = (known_labels == 0).sum().item()
+            illicit_count = (known_labels == 1).sum().item()
+            total_known = len(known_labels)
+            
+            print(f"Licit count: {licit_count}")
+            print(f"Illicit count: {illicit_count}")
+            print(f"Total known: {total_known}")
+        
+            # Calculate class weights for weighted cross entropy
+            ce_weight_licit = total_known / (2 * licit_count) if licit_count > 0 else 1.0
+            ce_weight_illicit = total_known / (2 * illicit_count) if illicit_count > 0 else 1.0
+            class_weights = [ce_weight_licit, ce_weight_illicit, 0.0]
+        
+            # Calculate alpha weights for focal loss
+            alpha_licit = illicit_count / total_known if total_known > 0 else 0.5
+            alpha_illicit = licit_count / total_known if total_known > 0 else 0.5
+            alpha_weights = [alpha_licit, alpha_illicit, 0.0]
+        
+            return alpha_weights, class_weights
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--elliptic_data', type=str, required=True)
+        parser.add_argument('--weights_out1', type=str, required=True)
+        
+        args = parser.parse_args()
+        
+        print(f"Input path: {args.elliptic_data}")
+        print(f"Output path: {args.weights_out1}")
+        
+        # Load the dataset using pickle (since it comes as Dataset type)
+        try:
+            with open(args.elliptic_data, "rb") as f:
+                data = pickle.load(f)
+            print(f"Successfully loaded data from {args.elliptic_data}")
+            print(f"Data type: {type(data)}")
+            if hasattr(data, 'y'):
+                print(f"Labels shape: {data.y.shape}")
+                print(f"Unique labels: {torch.unique(data.y)}")
+        except Exception as e:
+            print(f"Error loading data: {e}")
+            import traceback
+            traceback.print_exc()
+            exit(1)
+        
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(args.weights_out1), exist_ok=True)
+        
+        # Analyze class distribution
+        try:
+            alpha_weights, class_weights = analyze_class_distribution(data)
+            
+            weights_dict = {
+                'focal_loss_alpha': alpha_weights,
+                'class_weights': class_weights
+            }
+            
+            # Save to output path
+            with open(args.weights_out1, 'w') as f:
+                json.dump(weights_dict, f, indent=2)
+            
+            print(f"Saved weights to {args.weights_out1}")
+            print(f"Weights: {weights_dict}")
+            
+        except Exception as e:
+            print(f"Error during analysis: {e}")
+            import traceback
+            traceback.print_exc()
+            exit(1)
+        
+    args:
+      - --elliptic_data
+      - {inputValue: elliptic_data}
+      - --weights_out1
+      - {outputPath: weights_out1}
