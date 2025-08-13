@@ -106,6 +106,6 @@ implementation:
         
     args:
       - --elliptic_data
-      - {inputValue: elliptic_data}
+      - {inputPath: elliptic_data}
       - --weights_out1
       - {outputPath: weights_out1}
