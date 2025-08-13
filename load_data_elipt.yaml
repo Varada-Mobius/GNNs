@@ -1,5 +1,5 @@
-name: New Load Elliptic Bitcoin Dataset
-description: 3 Loads the EllipticBitcoinDataset and saves it as Dataset type using pickle.
+name: Load Elliptic Bitcoin Dataset
+description: Loads the EllipticBitcoinDataset and saves it as a Dataset type.
 outputs:
   - {name: elliptic_data, type: Dataset}
 implementation:
@@ -9,7 +9,7 @@ implementation:
       - sh
       - -c
       - |
-        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric pandas --user || \
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric pandas || \
         PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet torch torchvision torchaudio torch_geometric pandas --user
         exec "$0" "$@"
       - python3
@@ -24,13 +24,12 @@ implementation:
         
         parser = argparse.ArgumentParser()
         parser.add_argument('--elliptic_data', type=str, required=True)
+        
         args = parser.parse_args()
         
         print(f"[INFO] Loading Elliptic Bitcoin Dataset...")
-        
-        # Load the dataset
         dataset = EllipticBitcoinDataset(root='/tmp/elliptic')
-        data = dataset[0]  # Get the single graph data object
+        data = dataset[0]
         
         print(f"[INFO] Dataset loaded successfully")
         print(f"[INFO] Number of nodes: {data.x.shape[0]}")
@@ -38,14 +37,14 @@ implementation:
         print(f"[INFO] Number of features: {data.x.shape[1]}")
         print(f"[INFO] Unique labels: {torch.unique(data.y)}")
         
-        # Ensure output directory exists
+        # Ensure output directory
         os.makedirs(os.path.dirname(args.elliptic_data), exist_ok=True)
         
-        # Save using pickle (similar to MNIST approach)
-        with open(args.elliptic_data, "wb") as f:
-            pickle.dump(data, f)
+        # Save the entire data object using pickle
+        with open(args.elliptic_data, "wb") as f: pickle.dump(data, f)
         
-        print(f"[SUCCESS] Saved Elliptic dataset to {args.elliptic_data}")
+        print(f"[SUCCESS] Saved elliptic dataset to {args.elliptic_data}")
+        
     args:
       - --elliptic_data
       - {outputPath: elliptic_data}
