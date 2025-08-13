@@ -74,8 +74,8 @@ implementation:
         torch.save(model, args.trained_model)
         print(f"Saved trained model to {args.trained_model}")
     args:
-      - --data_path
-      - {inputPath: data_path}
+      - --elliptic_data
+      - {inputPath: elliptic_data}
       - --model
       - {inputPath: model}
       - --config
