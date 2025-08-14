@@ -1,0 +1,105 @@
+name: V Train Model
+description: V Trains the model using provided data and config parameters.
+inputs:
+  - {name: data_path, type: Dataset}           
+  - {name: model, type: Model}             # TGCN/GCN model from build model brick
+  - {name: config, type: String}           # Training configuration (epochs, etc.)
+outputs:
+  - {name: trained_model, type: Model}     # Trained model object
+implementation:
+  container:
+    image: nikhilv215/nesy-factory:v2
+    command:
+      - sh
+      - -c
+      - |
+        exec "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        import torch
+        import argparse
+        import pickle
+        import os
+        import json
+        from nesy_factory.GNNs import create_model
+        from nesy_factory.utils import get_config_by_name, set_random_seed
+        from sklearn.metrics import classification_report
+        
+
+        # Parse arguments
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--data_path', type=str, required=True)
+        parser.add_argument('--model', type=str, required=True)
+        parser.add_argument('--config', type=str, required=True)
+        parser.add_argument('--trained_model', type=str, required=True)
+        args = parser.parse_args()
+
+        print(f"Data path: {args.data_path}")
+        print(f"Model path: {args.model}")
+        print(f"Config path: {args.config}")
+        print(f"Output path: {args.trained_model}")
+        
+        # Load data
+        try:
+            with open(args.data_path, "rb") as f:
+                data = pickle.load(f)
+            print(f"Successfully loaded data. Type: {type(data)}")
+            if hasattr(data, 'x'):
+                print(f"Data shape: {data.x.shape}")
+        except Exception as e:
+            print(f"Error loading data: {e}")
+            exit(1)
+            
+        
+            
+        print("Loading config...")
+        print("config file is {args/config}")
+        try: 
+            config = json.loads(args.config)
+        except : 
+            with open(args.config_file) as f:
+                config = json.load(f)
+        print(f"the configs are : {config}")
+        # Extract epochs from config
+        
+
+        print("Loading model...")
+        model_name = config.get('model_name', 'tgcn')
+        model = create_model(model_name, config)
+        model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+        # model = torch.load(args.model)
+        epochs = config.get('epochs', 100)
+        print(f"Training for {epochs} epochs")
+        print(" Starting Model Training ")
+        for epoch in range(epochs):
+            loss = model.train_step(data, data.train_mask)
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch:03d} | Loss: {loss:.4f}")
+        print("Finished Model Training ")
+        
+        # Save trained model
+        print("Saving trained model...")
+        try:
+            # Create parent directory if it doesn't exist
+            output_dir = os.path.dirname(args.trained_model)
+            if output_dir and not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
+                print(f"Created directory: {output_dir}")
+            
+            # torch.save(model, args.trained_model)
+            torch.save(model.state_dict(), args.trained_model)
+            print(f"Saved trained model to {args.trained_model}")
+        except Exception as e:
+            print(f"Error saving trained model: {e}")
+            exit(1)
+    args:
+      - --data_path
+      - {inputPath: data_path}
+      - --model
+      - {inputPath: model}
+      - --config
+      - {inputValue: config}
+      - --trained_model
+      - {outputPath: trained_model}
